@@ -1,0 +1,60 @@
+package com.br.vr.miniautorizador.configs;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+
+/**
+ * Security configuration for the Mini Autorizador.
+ *
+ * <p>All business endpoints require HTTP Basic authentication with the
+ * fixed credentials {@code username} / {@code password} (case-sensitive).
+ * Sessions are stateless — no JSESSIONID cookies are created.
+ *
+ * <p>Note: the {@link BCryptPasswordEncoder} bean is also used by
+ * {@code CardServiceImpl} to hash card PINs on creation and by
+ * {@code PasswordMatchRule} to verify them on transaction authorization.
+ */
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth ->
+                auth.requestMatchers("/actuator/**").permitAll()
+                    .anyRequest().authenticated())
+            .httpBasic(basic -> basic
+                .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)));
+
+        return http.build();
+    }
+
+    @Bean
+    public UserDetailsService userDetailsService(BCryptPasswordEncoder encoder) {
+        var user = User.builder()
+                .username("username")
+                .password(encoder.encode("password"))
+                .roles("USER")
+                .build();
+        return new InMemoryUserDetailsManager(user);
+    }
+
+    @Bean
+    public BCryptPasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
