@@ -8,8 +8,8 @@ import com.br.vr.miniautorizador.records.responses.CreateCardResponse;
 import com.br.vr.miniautorizador.repositories.CardRepository;
 import com.br.vr.miniautorizador.services.CardService;
 import com.br.vr.miniautorizador.utils.CardMask;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,13 +18,21 @@ import java.math.BigDecimal;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class CardServiceImpl implements CardService {
-
-    static final BigDecimal INITIAL_BALANCE = new BigDecimal("500.00");
 
     private final CardRepository cardRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final BigDecimal initialBalance;
+
+    public CardServiceImpl(
+            CardRepository cardRepository,
+            BCryptPasswordEncoder passwordEncoder,
+            @Value("${mini-autorizador.card.initial-balance:500.00}") BigDecimal initialBalance
+    ) {
+        this.cardRepository = cardRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.initialBalance = initialBalance;
+    }
 
     @Override
     @Transactional
@@ -39,10 +47,10 @@ public class CardServiceImpl implements CardService {
         cardRepository.save(Card.builder()
                 .cardNumber(request.numeroCartao())
                 .passwordHash(passwordEncoder.encode(request.senha()))
-                .balance(INITIAL_BALANCE)
+                .balance(initialBalance)
                 .build());
 
-        log.info("CardServiceImpl.createCard - Card created - cardNumber: {}, balance: {}", CardMask.mask(request.numeroCartao()), INITIAL_BALANCE);
+        log.info("CardServiceImpl.createCard - Card created - cardNumber: {}, balance: {}", CardMask.mask(request.numeroCartao()), initialBalance);
 
         return new CreateCardResponse(request.numeroCartao(), request.senha());
     }

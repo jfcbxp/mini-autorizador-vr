@@ -26,6 +26,14 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+mini-autorizador:
+  card:
+    initial-balance: ${CARD_INITIAL_BALANCE:500.00}
+  security:
+    username: ${APP_USERNAME:username}
+    password: ${APP_PASSWORD:password}
+    role: ${APP_ROLE:USER}
+
 management:
   endpoints:
     web:

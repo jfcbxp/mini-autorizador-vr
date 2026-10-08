@@ -7,9 +7,9 @@ import com.br.vr.miniautorizador.records.requests.CreateCardRequest;
 import com.br.vr.miniautorizador.repositories.CardRepository;
 import com.br.vr.miniautorizador.services.impl.CardServiceImpl;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -32,7 +32,12 @@ class CardServiceImplTest {
 
     @Mock CardRepository cardRepository;
     @Mock BCryptPasswordEncoder passwordEncoder;
-    @InjectMocks CardServiceImpl service;
+    private CardServiceImpl service;
+
+    @BeforeEach
+    void setUp() {
+        service = new CardServiceImpl(cardRepository, passwordEncoder, INITIAL_BALANCE);
+    }
 
     private CreateCardRequest request() {
         return new CreateCardRequest(CARD_NUMBER, PASSWORD);

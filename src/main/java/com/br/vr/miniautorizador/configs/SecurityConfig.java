@@ -1,5 +1,6 @@
 package com.br.vr.miniautorizador.configs;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -34,11 +35,16 @@ public class SecurityConfig {
     }
 
     @Bean
-    public UserDetailsService userDetailsService(BCryptPasswordEncoder encoder) {
+    public UserDetailsService userDetailsService(
+            BCryptPasswordEncoder encoder,
+            @Value("${mini-autorizador.security.username:username}") String username,
+            @Value("${mini-autorizador.security.password:password}") String password,
+            @Value("${mini-autorizador.security.role:USER}") String role
+    ) {
         var user = User.builder()
-                .username("username")
-                .password(encoder.encode("password"))
-                .roles("USER")
+                .username(username)
+                .password(encoder.encode(password))
+                .roles(role)
                 .build();
         return new InMemoryUserDetailsManager(user);
     }

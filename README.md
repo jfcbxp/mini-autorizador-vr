@@ -25,6 +25,19 @@ Solução do desafio técnico VR Benefícios. API REST para criação de cartõe
 - JDK 25
 - Maven (ou use a IDE com suporte a Java 25)
 
+### Configuração por variáveis de ambiente
+
+O saldo inicial e as credenciais HTTP Basic são configuráveis por ambiente. O perfil `local` herda esses valores de `application.yml`.
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `CARD_INITIAL_BALANCE` | `500.00` | Saldo inicial dos cartões |
+| `APP_USERNAME` | `username` | Usuário da API |
+| `APP_PASSWORD` | `password` | Senha da API |
+| `APP_ROLE` | `USER` | Papel Spring Security, sem o prefixo `ROLE_` |
+
+Os valores padrão de autenticação são apenas para desenvolvimento e para compatibilidade com o contrato do desafio. Configure credenciais próprias nos ambientes compartilhados ou de produção.
+
 ### 1. Subir o banco
 
 ```bash
