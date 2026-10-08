@@ -39,7 +39,7 @@ public class CardController {
                 .buildAndExpand(response.numeroCartao())
                 .toUri();
 
-        log.info("CardController.createCard - End - cardNumber: {}, location: {}", CardMask.mask(response.numeroCartao()), location);
+        log.info("CardController.createCard - End - cardNumber: {}", CardMask.mask(response.numeroCartao()));
 
         return ResponseEntity.created(location).body(response);
     }

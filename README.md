@@ -138,7 +138,7 @@ UPDATE cards SET balance = ?, version = (version + 1)
  WHERE card_number = ? AND version = ?
 ```
 
-Se duas instâncias leram o mesmo `version` e tentam salvar simultaneamente, apenas uma terá `1 row affected`. A outra recebe `OptimisticLockingFailureException`, que é capturada pelo `@Retryable` (até 3 tentativas com backoff de 50ms). Em cada retry o cartão é relido do banco com o saldo atualizado, e as regras são reavaliadas — garantindo que o saldo nunca fique negativo.
+Se duas requisições leram o mesmo `version` e tentam salvar simultaneamente, apenas uma terá `1 row affected`. A outra recebe `OptimisticLockingFailureException`, que é capturada pelo `@Retryable` (até 3 tentativas com backoff de 50ms). Em cada retry o cartão é relido do banco com o saldo atualizado, e as regras são reavaliadas. Se as tentativas se esgotarem, `@Recover` converte a falha em `SALDO_INSUFICIENTE` (HTTP 422), sem permitir saldo negativo.
 
 Nenhum `synchronized`, `ReentrantLock` ou cache JVM é utilizado. O banco é a única fonte de verdade.
 
@@ -147,7 +147,7 @@ Nenhum `synchronized`, `ReentrantLock` ou cache JVM é utilizado. O banco é a �
 - Sem infraestrutura adicional — apenas o banco já existente
 - Sem deadlocks (ao contrário de `SELECT FOR UPDATE`)
 - Correto por construção: o banco rejeita qualquer escrita com `version` desatualizado
-- Validado pelo teste k6: 50 VUs concorrentes, zero double-spend, saldo nunca negativo
+- Validado pelo teste k6: 50 VUs concorrentes na mesma instância, zero double-spend, saldo nunca negativo
 
 #### Limitações em alta escala
 
@@ -210,19 +210,19 @@ k6 run stress-test.js
 
 O script `stress-test.js` executa dois cenários:
 
-1. **setup_card** — cria um cartão com saldo R$10,00 (drena R$490,00 do saldo inicial de R$500,00)
-2. **concurrent_transactions** — 50 VUs simultâneas durante 30s, cada uma tentando debitar R$1,00
+1. **Setup** — cria um cartão único para cada execução, debita R$490,00 do saldo inicial e verifica que restam R$10,00 antes de começar a carga
+2. **concurrent_transactions** — 50 VUs simultâneas durante 30s, cada uma tentando debitar R$1,00 do mesmo cartão
 
 **Thresholds:**
 - `transactions_unexpected == 0` — nenhuma resposta fora de 201 ou 422 é tolerada
-- `p(95) < 500ms` — latência sob carga
+- `http_req_duration{scenario:concurrent_transactions}` `p(95) < 500ms` — latência das requisições do cenário de carga (respostas 422 esperadas não contam como falhas HTTP)
 
 **Resultado esperado:**
 - `transactions_ok: 10` — exatamente as 10 transações que cabem no saldo passam
 - `transactions_saldo_insuficiente: ~1530` — todas as demais são bloqueadas
 - Saldo final: `R$0.00` — nunca negativo, zero double-spend
 
-Esse resultado prova que o Optimistic Locking funciona corretamente mesmo com 50 instâncias concorrentes disputando o mesmo saldo.
+O contador de transações autorizadas considera apenas o cenário de carga, não as requisições de preparação. O teste exercita 50 VUs concorrentes contra uma instância da aplicação; ele não simula múltiplas instâncias.
 
 ---
 

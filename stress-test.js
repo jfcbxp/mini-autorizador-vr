@@ -2,6 +2,8 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter } from 'k6/metrics';
 
+http.setResponseCallback(http.expectedStatuses(200, 201, 422));
+
 // Métricas customizadas
 const okCount              = new Counter('transactions_ok');
 const saldoInsuficiente    = new Counter('transactions_saldo_insuficiente');
@@ -9,36 +11,24 @@ const senhaInvalida        = new Counter('transactions_senha_invalida');
 const cartaoInexistente    = new Counter('transactions_cartao_inexistente');
 const unexpectedErrors     = new Counter('transactions_unexpected');
 
-// Cartão compartilhado entre todas as VUs — cenário de concorrência real
-const CARD_NUMBER = '7777888899990000';
 const PASSWORD    = '4321';
-const BASE_URL    = 'http://localhost:8080';
+const BASE_URL    = __ENV.BASE_URL || 'http://localhost:8080';
 const AUTH        = 'dXNlcm5hbWU6cGFzc3dvcmQ='; // username:password em base64
 
 export const options = {
     scenarios: {
-        // Fase 1: setup — cria o cartão (1 VU, 1 iteração)
-        setup_card: {
-            executor: 'shared-iterations',
-            vus: 1,
-            iterations: 1,
-            maxDuration: '10s',
-            tags: { scenario: 'setup' },
-        },
-        // Fase 2: stress de concorrência — 50 VUs disparando transações simultâneas
+        // 50 VUs exercise concurrent debits against the same card.
         concurrent_transactions: {
             executor: 'constant-vus',
             vus: 50,
             duration: '30s',
-            startTime: '5s', // aguarda setup terminar
-            tags: { scenario: 'stress' },
         },
     },
     thresholds: {
         // Nenhuma transação pode retornar status inesperado (só 201 ou 422 são válidos)
         'transactions_unexpected': ['count == 0'],
         // p95 das requisições deve ser < 500ms
-        'http_req_duration{scenario:stress}': ['p(95)<500'],
+        'http_req_duration{scenario:concurrent_transactions}': ['p(95)<500'],
     },
 };
 
@@ -48,30 +38,36 @@ const headers = {
 };
 
 export function setup() {
-    // Garante que o cartão existe com saldo R$10.00 para forçar race condition
-    // Primeiro cria o cartão
-    http.post(`${BASE_URL}/cartoes`, JSON.stringify({
-        numeroCartao: CARD_NUMBER,
+    const cardNumber = `7${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 1e7).toString().padStart(7, '0')}`;
+    const createResponse = http.post(`${BASE_URL}/cartoes`, JSON.stringify({
+        numeroCartao: cardNumber,
         senha: PASSWORD,
     }), { headers });
+    if (!check(createResponse, { 'cartao de teste criado': (res) => res.status === 201 })) {
+        throw new Error(`Falha ao criar cartão para stress test: status=${createResponse.status} body=${createResponse.body}`);
+    }
 
-    // Drena até R$10.00 (500 - 490 = 10)
-    http.post(`${BASE_URL}/transacoes`, JSON.stringify({
-        numeroCartao: CARD_NUMBER,
+    const debitResponse = http.post(`${BASE_URL}/transacoes`, JSON.stringify({
+        numeroCartao: cardNumber,
         senhaCartao: PASSWORD,
         valor: 490.00,
     }), { headers });
+    if (!check(debitResponse, { 'saldo de teste preparado': (res) => res.status === 201 && res.body === 'OK' })) {
+        throw new Error(`Falha ao preparar saldo para stress test: status=${debitResponse.status} body=${debitResponse.body}`);
+    }
 
-    const res = http.get(`${BASE_URL}/cartoes/${CARD_NUMBER}`, { headers });
+    const res = http.get(`${BASE_URL}/cartoes/${cardNumber}`, { headers });
+    if (!check(res, { 'saldo inicial e R$10.00': (response) => response.status === 200 && Number(response.body) === 10 })) {
+        throw new Error(`Saldo inicial inesperado para stress test: status=${res.status} body=${res.body}`);
+    }
     console.log(`Saldo inicial para stress: R$${res.body}`);
+    return { cardNumber };
 }
 
-export default function () {
-    const scenario = __ENV.K6_SCENARIO || '';
-
+export default function (data) {
     // Cada VU tenta debitar R$1.00 — com saldo de R$10.00 apenas 10 devem passar
     const res = http.post(`${BASE_URL}/transacoes`, JSON.stringify({
-        numeroCartao: CARD_NUMBER,
+        numeroCartao: data.cardNumber,
         senhaCartao: PASSWORD,
         valor: 1.00,
     }), { headers });
@@ -94,8 +90,8 @@ export default function () {
     sleep(0.1);
 }
 
-export function teardown() {
-    const res = http.get(`${BASE_URL}/cartoes/${CARD_NUMBER}`, { headers });
+export function teardown(data) {
+    const res = http.get(`${BASE_URL}/cartoes/${data.cardNumber}`, { headers });
     console.log(`Saldo final apos stress: R$${res.body}`);
     check(res, {
         'saldo final >= 0': (r) => parseFloat(r.body) >= 0,

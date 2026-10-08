@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,5 +48,17 @@ public class TransactionServiceImpl implements TransactionService {
 
         log.info("TransactionServiceImpl.authorize - Authorized - cardNumber: {}, amount: {}, newBalance: {}",
                 CardMask.mask(request.numeroCartao()), request.valor(), card.getBalance());
+    }
+
+    @Recover
+    public void recover(OptimisticLockingFailureException exception, TransactionRequest request) {
+        log.info("TransactionServiceImpl.authorize - retries exhausted - cardNumber: {}",
+                CardMask.mask(request.numeroCartao()));
+        throw new AuthorizationException(TransactionError.SALDO_INSUFICIENTE);
+    }
+
+    @Recover
+    public void recoverAuthorization(AuthorizationException exception, TransactionRequest request) {
+        throw exception;
     }
 }

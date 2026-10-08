@@ -73,9 +73,8 @@ class TransactionServiceImplTest {
     }
 
     @Test
-    void authorize_cardNotFound_rulesReceiveNull() {
+    void authorize_cardNotFound_doesNotEvaluateRules() {
         when(cardRepository.findById(CARD_NUMBER)).thenReturn(Optional.empty());
-        doThrow(new AuthorizationException(TransactionError.CARTAO_INEXISTENTE)).when(rule).evaluate(null, request());
         service = new TransactionServiceImpl(cardRepository, List.of(rule));
 
         ThrowingCallable call = () -> service.authorize(request());
@@ -84,5 +83,8 @@ class TransactionServiceImplTest {
                 .isInstanceOf(AuthorizationException.class)
                 .extracting(e -> ((AuthorizationException) e).getError())
                 .isEqualTo(TransactionError.CARTAO_INEXISTENTE);
+
+        verifyNoInteractions(rule);
+        verify(cardRepository, never()).save(any());
     }
 }
