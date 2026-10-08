@@ -4,6 +4,7 @@ import com.br.vr.miniautorizador.records.requests.CreateCardRequest;
 import com.br.vr.miniautorizador.records.responses.CreateCardResponse;
 import com.br.vr.miniautorizador.services.CardService;
 import jakarta.validation.Valid;
+import com.br.vr.miniautorizador.utils.CardMask;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -28,7 +29,7 @@ public class CardController {
 
     @PostMapping
     public ResponseEntity<CreateCardResponse> createCard(@Valid @RequestBody CreateCardRequest request) {
-        log.info("CardController.createCard - Start - cardNumber: {}", mask(request.numeroCartao()));
+        log.info("CardController.createCard - Start - cardNumber: {}", CardMask.mask(request.numeroCartao()));
 
         CreateCardResponse response = cardService.createCard(request);
 
@@ -38,24 +39,20 @@ public class CardController {
                 .buildAndExpand(response.numeroCartao())
                 .toUri();
 
-        log.info("CardController.createCard - End - cardNumber: {}, location: {}", mask(response.numeroCartao()), location);
+        log.info("CardController.createCard - End - cardNumber: {}, location: {}", CardMask.mask(response.numeroCartao()), location);
 
         return ResponseEntity.created(location).body(response);
     }
 
     @GetMapping("/{numeroCartao}")
     public ResponseEntity<BigDecimal> getBalance(@PathVariable String numeroCartao) {
-        log.info("CardController.getBalance - Start - cardNumber: {}", mask(numeroCartao));
+        log.info("CardController.getBalance - Start - cardNumber: {}", CardMask.mask(numeroCartao));
 
         BigDecimal balance = cardService.getBalance(numeroCartao);
 
-        log.info("CardController.getBalance - End - cardNumber: {}, balance: {}", mask(numeroCartao), balance);
+        log.info("CardController.getBalance - End - cardNumber: {}, balance: {}", CardMask.mask(numeroCartao), balance);
 
         return ResponseEntity.ok(balance);
     }
 
-    private static String mask(String cardNumber) {
-        if (cardNumber == null || cardNumber.length() < 4) return "****";
-        return "*".repeat(cardNumber.length() - 4) + cardNumber.substring(cardNumber.length() - 4);
-    }
 }

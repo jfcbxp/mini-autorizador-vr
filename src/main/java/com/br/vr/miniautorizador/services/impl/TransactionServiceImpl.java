@@ -6,6 +6,7 @@ import com.br.vr.miniautorizador.records.requests.TransactionRequest;
 import com.br.vr.miniautorizador.repositories.CardRepository;
 import com.br.vr.miniautorizador.rules.AuthorizationRule;
 import com.br.vr.miniautorizador.services.TransactionService;
+import com.br.vr.miniautorizador.utils.CardMask;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -33,7 +34,7 @@ public class TransactionServiceImpl implements TransactionService {
             backoff = @Backoff(delay = 50)
     )
     public void authorize(TransactionRequest request) {
-        log.info("TransactionServiceImpl.authorize - Start - cardNumber: {}, amount: {}", mask(request.numeroCartao()), request.valor());
+        log.info("TransactionServiceImpl.authorize - Start - cardNumber: {}, amount: {}", CardMask.mask(request.numeroCartao()), request.valor());
 
         Card card = cardRepository.findById(request.numeroCartao()).orElse(null);
 
@@ -43,11 +44,6 @@ public class TransactionServiceImpl implements TransactionService {
         cardRepository.save(card);
 
         log.info("TransactionServiceImpl.authorize - Authorized - cardNumber: {}, amount: {}, newBalance: {}",
-                mask(request.numeroCartao()), request.valor(), card.getBalance());
-    }
-
-    private static String mask(String cardNumber) {
-        if (cardNumber == null || cardNumber.length() < 4) return "****";
-        return "*".repeat(cardNumber.length() - 4) + cardNumber.substring(cardNumber.length() - 4);
+                CardMask.mask(request.numeroCartao()), request.valor(), card.getBalance());
     }
 }
