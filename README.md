@@ -15,6 +15,16 @@ Solução do desafio técnico VR Benefícios. API REST para criação de cartõe
 - MySQL 5.7
 - BCrypt (hashing de senha)
 
+## Desenvolvimento orientado por especificações
+
+O projeto foi desenvolvido com **Spec-Driven Development**, usando o **Kiro** como apoio ao fluxo de trabalho com IA. A especificação foi organizada antes e durante a implementação para manter requisitos, decisões de arquitetura e tarefas rastreáveis, usando os documentos como contexto para orientar e revisar o trabalho assistido por IA.
+
+Os documentos estão na pasta [`.kiro/specs/mini-autorizador/`](./.kiro/specs/mini-autorizador/):
+
+- [`requirements.md`](./.kiro/specs/mini-autorizador/requirements.md): requisitos funcionais e critérios de aceitação.
+- [`design.md`](./.kiro/specs/mini-autorizador/design.md): decisões de arquitetura e desenho da solução.
+- [`tasks.md`](./.kiro/specs/mini-autorizador/tasks.md): plano de implementação organizado em tarefas.
+
 ---
 
 ## Como rodar
