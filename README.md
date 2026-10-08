@@ -114,6 +114,137 @@ curl -X POST http://localhost:8080/transacoes \
 | Cartão inexistente | 422 | `CARTAO_INEXISTENTE` |
 | Sem auth | 401 | — |
 
+### Exemplos de requests e responses
+
+Os exemplos abaixo usam o cartão `6549873025634501`. Execute primeiro a criação para preparar os exemplos seguintes. Cada chamada `curl -i` mostra o status HTTP e os headers; os blocos de resposta destacam o status e o corpo relevantes.
+
+#### Criar cartão
+
+```bash
+curl -i -X POST http://localhost:8080/cartoes \
+  -u username:password \
+  -H "Content-Type: application/json" \
+  -d '{"numeroCartao":"6549873025634501","senha":"1234"}'
+```
+
+Resposta esperada (`201 Created`):
+
+```http
+HTTP/1.1 201
+Location: http://localhost:8080/cartoes/6549873025634501
+Content-Type: application/json
+
+{"numeroCartao":"6549873025634501","senha":"1234"}
+```
+
+Repetir a mesma chamada depois da criação retorna `422 Unprocessable Entity` e o cartão no corpo:
+
+```json
+{"numeroCartao":"6549873025634501","senha":"1234"}
+```
+
+Para validar campos obrigatórios, envie-os vazios:
+
+```bash
+curl -i -X POST http://localhost:8080/cartoes \
+  -u username:password \
+  -H "Content-Type: application/json" \
+  -d '{"numeroCartao":"","senha":""}'
+```
+
+Resposta: `400 Bad Request`, sem corpo.
+
+#### Consultar saldo
+
+```bash
+curl -i http://localhost:8080/cartoes/6549873025634501 \
+  -u username:password
+```
+
+Resposta esperada antes de qualquer débito (`200 OK`):
+
+```http
+HTTP/1.1 200
+Content-Type: application/json
+
+500.00
+```
+
+Um cartão inexistente retorna `404 Not Found`, sem corpo:
+
+```bash
+curl -i http://localhost:8080/cartoes/0000000000000000 \
+  -u username:password
+```
+
+#### Autorizar transações
+
+Com o cartão criado, uma transação válida debita R$ 10,00:
+
+```bash
+curl -i -X POST http://localhost:8080/transacoes \
+  -u username:password \
+  -H "Content-Type: application/json" \
+  -d '{"numeroCartao":"6549873025634501","senhaCartao":"1234","valor":10.00}'
+```
+
+Resposta esperada (`201 Created`):
+
+```http
+HTTP/1.1 201
+Content-Type: text/plain
+
+OK
+```
+
+Os exemplos a seguir podem ser executados após a criação do cartão; cada transação recusada não altera o saldo.
+
+Senha incorreta (`422 Unprocessable Entity`, corpo `SENHA_INVALIDA`):
+
+```bash
+curl -i -X POST http://localhost:8080/transacoes \
+  -u username:password \
+  -H "Content-Type: application/json" \
+  -d '{"numeroCartao":"6549873025634501","senhaCartao":"0000","valor":1.00}'
+```
+
+Saldo insuficiente (`422 Unprocessable Entity`, corpo `SALDO_INSUFICIENTE`):
+
+```bash
+curl -i -X POST http://localhost:8080/transacoes \
+  -u username:password \
+  -H "Content-Type: application/json" \
+  -d '{"numeroCartao":"6549873025634501","senhaCartao":"1234","valor":9999.00}'
+```
+
+Cartão inexistente (`422 Unprocessable Entity`, corpo `CARTAO_INEXISTENTE`):
+
+```bash
+curl -i -X POST http://localhost:8080/transacoes \
+  -u username:password \
+  -H "Content-Type: application/json" \
+  -d '{"numeroCartao":"0000000000000000","senhaCartao":"1234","valor":1.00}'
+```
+
+Valor ausente ou menor que `0.01` é inválido (`400 Bad Request`, sem corpo):
+
+```bash
+curl -i -X POST http://localhost:8080/transacoes \
+  -u username:password \
+  -H "Content-Type: application/json" \
+  -d '{"numeroCartao":"6549873025634501","senhaCartao":"1234","valor":0.00}'
+```
+
+#### Requisição sem autenticação
+
+Todas as rotas de cartões e transações exigem HTTP Basic. Por exemplo, sem a opção `-u`:
+
+```bash
+curl -i http://localhost:8080/cartoes/6549873025634501
+```
+
+Resposta: `401 Unauthorized`, sem corpo.
+
 ---
 
 ## Decisões de projeto
