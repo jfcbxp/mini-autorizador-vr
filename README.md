@@ -105,6 +105,24 @@ curl -X POST http://localhost:8080/transacoes \
 
 ## Decisões de projeto
 
+### Padrões de projeto e princípios de design
+
+Este projeto é um backend REST e não possui um design system visual de interface. No código, os principais padrões e princípios aplicados são:
+
+- **Strategy:** cada validação de autorização implementa `AuthorizationRule`. `TransactionServiceImpl` recebe a lista dessas regras pelo Spring e as executa em ordem. Uma regra pode interromper o fluxo lançando `AuthorizationException`.
+- **Chain of Responsibility (orquestração simples):** o serviço percorre as regras ordenadas com `forEach`; não há referências ou encadeamento direto entre elas. O cartão inexistente é tratado antes da lista, na consulta ao repositório.
+- **Repository:** `CardRepository`, baseado em Spring Data JPA, abstrai o acesso e a persistência dos cartões.
+- **Arquitetura em camadas e DTOs:** controllers tratam HTTP, services coordenam as operações, repositories acessam dados e records de request/response separam o contrato REST da entidade JPA.
+
+Os princípios **SOLID** aparecem de forma pragmática:
+
+- **SRP:** controllers, serviços, repositório e regras têm responsabilidades distintas.
+- **OCP:** novas validações podem ser adicionadas como implementações de `AuthorizationRule`, sem alterar o loop que executa as regras.
+- **ISP:** `AuthorizationRule` expõe apenas a operação `evaluate` necessária ao fluxo.
+- **DIP:** o serviço de transações depende das abstrações `CardRepository` e `AuthorizationRule`, fornecidas por injeção de dependências.
+
+O princípio **LSP** não é um foco explícito da solução; as implementações de `AuthorizationRule` apenas seguem o contrato comum de validar a transação ou lançar a exceção de autorização correspondente.
+
 ### Banco de dados — MySQL
 
 MySQL foi escolhido por suporte nativo a transações ACID e ao mecanismo de Optimistic Locking via `@Version`, essencial para a garantia de consistência do saldo sob concorrência.
@@ -208,14 +226,14 @@ k6 run stress-test.js
 
 ### O que o teste valida
 
-O script `stress-test.js` executa dois cenários:
+O script `stress-test.js` prepara um cartão e executa um cenário de carga:
 
 1. **Setup** — cria um cartão único para cada execução, debita R$490,00 do saldo inicial e verifica que restam R$10,00 antes de começar a carga
 2. **concurrent_transactions** — 50 VUs simultâneas durante 30s, cada uma tentando debitar R$1,00 do mesmo cartão
 
-**Thresholds:**
+**Critérios do teste:**
 - `transactions_unexpected == 0` — nenhuma resposta fora de 201 ou 422 é tolerada
-- `http_req_duration{scenario:concurrent_transactions}` `p(95) < 500ms` — latência das requisições do cenário de carga (respostas 422 esperadas não contam como falhas HTTP)
+- `http_req_duration{scenario:concurrent_transactions}` `p(95) < 500ms` — referência interna de latência para as requisições do cenário de carga; respostas 422 esperadas não contam como falhas HTTP
 
 **Resultado esperado:**
 - `transactions_ok: 10` — exatamente as 10 transações que cabem no saldo passam
@@ -223,6 +241,8 @@ O script `stress-test.js` executa dois cenários:
 - Saldo final: `R$0.00` — nunca negativo, zero double-spend
 
 O contador de transações autorizadas considera apenas o cenário de carga, não as requisições de preparação. O teste exercita 50 VUs concorrentes contra uma instância da aplicação; ele não simula múltiplas instâncias.
+
+A meta de p95 de 500 ms é apenas uma referência de performance deste projeto, não um requisito da proposta da vaga. Se essa referência não for atingida, o k6 sinaliza a falha do threshold, mas isso não significa que os requisitos funcionais da proposta falharam.
 
 ---
 
