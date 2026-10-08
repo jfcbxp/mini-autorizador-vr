@@ -1,6 +1,7 @@
 package com.br.vr.miniautorizador.services.impl;
 
 import com.br.vr.miniautorizador.domains.Card;
+import com.br.vr.miniautorizador.enums.TransactionError;
 import com.br.vr.miniautorizador.exceptions.AuthorizationException;
 import com.br.vr.miniautorizador.records.requests.TransactionRequest;
 import com.br.vr.miniautorizador.repositories.CardRepository;
@@ -36,7 +37,8 @@ public class TransactionServiceImpl implements TransactionService {
     public void authorize(TransactionRequest request) {
         log.info("TransactionServiceImpl.authorize - Start - cardNumber: {}, amount: {}", CardMask.mask(request.numeroCartao()), request.valor());
 
-        Card card = cardRepository.findById(request.numeroCartao()).orElse(null);
+        Card card = cardRepository.findById(request.numeroCartao())
+                .orElseThrow(() -> new AuthorizationException(TransactionError.CARTAO_INEXISTENTE));
 
         rules.forEach(rule -> rule.evaluate(card, request));
 

@@ -1,7 +1,6 @@
 package com.br.vr.miniautorizador.rules;
 
 import com.br.vr.miniautorizador.domains.Card;
-import com.br.vr.miniautorizador.exceptions.AuthorizationException;
 import com.br.vr.miniautorizador.records.requests.TransactionRequest;
 
 @FunctionalInterface
