@@ -1,0 +1,6 @@
+#
+# This file appends to the JVM master security properties.
+# Included by Dockerfile: ADD java.security ${JAVA_HOME}/conf/security/
+#
+# Placeholder — extend with custom security provider settings if needed.
+#
