@@ -1,0 +1,208 @@
+openapi: 3.0.3
+info:
+  title: Mini Autorizador API
+  description: API REST for benefit card creation, balance lookup, and debit authorization.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local application
+tags:
+  - name: Cartoes
+    description: Card creation and balance lookup
+  - name: Transacoes
+    description: Debit transaction authorization
+paths:
+  /cartoes:
+    post:
+      tags:
+        - Cartoes
+      summary: Create a card
+      operationId: createCard
+      security:
+        - BasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCardRequest'
+            example:
+              numeroCartao: '6549873025634501'
+              senha: '1234'
+      responses:
+        '201':
+          description: Card created.
+          headers:
+            Location:
+              description: URI of the created card.
+              schema:
+                type: string
+                format: uri
+              example: http://localhost:8080/cartoes/6549873025634501
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateCardResponse'
+              example:
+                numeroCartao: '6549873025634501'
+                senha: '1234'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: A card with this number already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateCardResponse'
+              example:
+                numeroCartao: '6549873025634501'
+                senha: '1234'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /cartoes/{numeroCartao}:
+    get:
+      tags:
+        - Cartoes
+      summary: Get card balance
+      operationId: getCardBalance
+      security:
+        - BasicAuth: []
+      parameters:
+        - name: numeroCartao
+          in: path
+          required: true
+          description: Card number.
+          schema:
+            type: string
+          example: '6549873025634501'
+      responses:
+        '200':
+          description: Current card balance.
+          content:
+            application/json:
+              schema:
+                type: number
+                format: double
+                example: 500.00
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Card not found.
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /transacoes:
+    post:
+      tags:
+        - Transacoes
+      summary: Authorize a debit transaction
+      operationId: authorizeTransaction
+      security:
+        - BasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+            example:
+              numeroCartao: '6549873025634501'
+              senhaCartao: '1234'
+              valor: 10.00
+      responses:
+        '201':
+          description: Transaction authorized.
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Transaction denied.
+          content:
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - CARTAO_INEXISTENTE
+                  - SENHA_INVALIDA
+                  - SALDO_INSUFICIENTE
+              examples:
+                cardNotFound:
+                  summary: Card does not exist
+                  value: CARTAO_INEXISTENTE
+                invalidPassword:
+                  summary: Card password does not match
+                  value: SENHA_INVALIDA
+                insufficientBalance:
+                  summary: Balance is insufficient
+                  value: SALDO_INSUFICIENTE
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+  schemas:
+    CreateCardRequest:
+      type: object
+      required:
+        - numeroCartao
+        - senha
+      properties:
+        numeroCartao:
+          type: string
+          description: Card number.
+          example: '6549873025634501'
+        senha:
+          type: string
+          description: Card password.
+          example: '1234'
+    CreateCardResponse:
+      type: object
+      required:
+        - numeroCartao
+        - senha
+      properties:
+        numeroCartao:
+          type: string
+          example: '6549873025634501'
+        senha:
+          type: string
+          description: Password value included in the response to match the challenge contract.
+          example: '1234'
+    TransactionRequest:
+      type: object
+      required:
+        - numeroCartao
+        - senhaCartao
+        - valor
+      properties:
+        numeroCartao:
+          type: string
+          example: '6549873025634501'
+        senhaCartao:
+          type: string
+          example: '1234'
+        valor:
+          type: number
+          format: double
+          minimum: 0.01
+          description: Transaction amount. Must be at least 0.01.
+          example: 10.00
+  responses:
+    Unauthorized:
+      description: HTTP Basic credentials are missing or invalid.
+    BadRequest:
+      description: Request body is malformed or fails validation.
+    InternalServerError:
+      description: Unexpected server error.

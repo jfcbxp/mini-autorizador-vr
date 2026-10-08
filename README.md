@@ -69,6 +69,8 @@ curl http://localhost:8080/actuator/health
 
 Autenticação: **HTTP Basic** — `username` / `password` em todas as rotas.
 
+A especificação OpenAPI 3 da API está disponível em [`swagger.yaml`](./swagger.yaml). O arquivo pode ser importado no Swagger Editor ou em outra ferramenta compatível; o projeto não inclui uma interface Swagger UI hospedada.
+
 ### POST /cartoes — Criar cartão
 
 ```bash
